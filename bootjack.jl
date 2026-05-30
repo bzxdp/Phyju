@@ -36,7 +36,7 @@ function main()
     end
 end
 
-function TaxaMatrixTuple(seqs::Dict{String,String})::Tuple{Vector{String},Matrix{Char}}
+function dict_to_taxa_matrix_tuple(seqs::Dict{String,String})::Tuple{Vector{String},Matrix{Char}}
     taxa= sort(collect(keys(seqs)))
     ntaxa = length(taxa)
     nsites = length(seqs[taxa[1]])
@@ -59,7 +59,7 @@ end
 
 
 function jack_sites(sequences::Dict{String,String}, nsiteJack::Int)::Tuple{Vector{String},Matrix{Char}}
-    (taxa, phylo_matrix) =  TaxaMatrixTuple(sequences)
+    (taxa, phylo_matrix)=  dict_to_taxa_matrix_tuple(sequences)
     ntaxa, nsites = size(phylo_matrix)
     jacknifed_matrix= Matrix{Char}(undef, ntaxa, nsiteJack)
     sites_in_jack_data = Int[]
@@ -82,7 +82,7 @@ function jack_sites(sequences::Dict{String,String}, nsiteJack::Int)::Tuple{Vecto
 end
 
 function boot_sites(sequences::Dict{String,String})::Tuple{Vector{String},Matrix{Char}}
-    (taxa, phylo_matrix) =  TaxaMatrixTuple(sequences)
+    (taxa, phylo_matrix) =  dict_to_taxa_matrix_tuple(sequences)
     ntaxa, nsites = size(phylo_matrix)
     booted_matrix= Matrix{Char}(undef, ntaxa, nsites)
     j_index=1
