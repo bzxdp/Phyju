@@ -75,7 +75,7 @@ function jack_sites(sequences::Dict{String,String}, nsiteJack::Int)::Tuple{Vecto
             continue
         end
         j_index_to_populate = length(sites_in_jack_data) +1
-        push! (sites_in_jack_data, current_selected_site)
+        push!(sites_in_jack_data, current_selected_site)
         jacknifed_matrix[:,j_index_to_populate] = phylo_matrix[:, current_selected_site]
     end
     return taxa,jacknifed_matrix
