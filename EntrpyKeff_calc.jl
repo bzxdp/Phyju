@@ -13,8 +13,8 @@ function main()
     end
     
     seqs_data= read_phylip(ARGS[1])
-    entropy= calculate_entropy(seqs_data)
-    keffs= calculate_keffs(entropy)
+    entropy= sites_entropy(seqs_data)
+    keffs= sites_keffs(entropy)
     sites= sort(collect(keys(entropy)))
     open(ARGS[2], "w") do fh
         println(fh, "site\tEntropy (bits)\tkeff")
@@ -24,7 +24,7 @@ function main()
     end    
 end
 
-function calculate_keffs(entropy::Dict{Int,Float64})::Dict{Int,Float64}
+function sites_keffs(entropy::Dict{Int,Float64})::Dict{Int,Float64}
     sites_entropies= entropy
     keffs = Dict{Int,Float64}()
     sites = sort(collect(keys(sites_entropies)))
@@ -64,7 +64,7 @@ function read_phylip(filename::String)::Dict{String,LongAA}
     return seqs
 end
 
-function calculate_entropy(sequences::Dict{String,LongAA})::Dict{Int,Float64}
+function sites_entropy(sequences::Dict{String,LongAA})::Dict{Int,Float64}
     seqs= sequences
     entropy =Dict{Int,Float64}()
     taxa =collect(keys(seqs))

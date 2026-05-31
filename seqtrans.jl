@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 using ArgParse
 using BioSequences
 using PhyloDataIO
