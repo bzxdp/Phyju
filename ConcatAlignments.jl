@@ -1,21 +1,36 @@
+#!/usr/bin/env julia
 using ArgParse
 using BioSequences
 using PhyloDataIO
 using FASTX
+
+# Time complexity: O(g × t) where g = number of genes and t = number of taxa.
+# For each gene, every taxon in the superalignment is visited once (O(t)),
+# and taxon membership is checked in O(1) using a Set.
+# This is optimal — every taxon-gene combination must be visited at least once.
+# Final version of script 01/06/2026. Based on older perl-script. 
+# example usage: ConcatAlignments.jl -e fas -o superalignment.phy -f p
+# to visualise all options: ConcatAlignments.jl --help  
+
 
 function main()
     args= parse_arguments()
     extension= args["extension"]
     outfile= args["output"]
     format= args["outformat"]
-    partition_file_name= "$(outfile)_partitions.txt"
+
+    base_outfile, extension_outfile = splitext(outfile)
+    partition_file_name= "$(base_outfile)_partitions.txt"
  
-    list_of_genes = filter(f->endswith(f, extension), readdir("."))
-    
+    list_of_genes= filter(f->endswith(f, extension), readdir("."))
+    if isempty(list_of_genes)
+        println("No files found with extension $extension")
+        exit(1)
+    end
     superalignment, gene_names, partition_boundaries= concatenate_sequences(list_of_genes)
     
     write_PhyloData(superalignment, outfile, format)
-    open (partition_file_name, "w") do fh 
+    open(partition_file_name, "w") do fh 
         for (i, gene) in enumerate(gene_names)
             println(fh, "$(gene) = $(partition_boundaries[i]);")
         end
@@ -39,40 +54,33 @@ end
 
 function concatenate(sequences::Dict{String, Dict{String,String}})::Tuple{Dict{String,String},Vector{String},Vector{String}}
     genes= sort(collect(keys(sequences)))
-    all_taxa= Dict{String,Int}()
+    all_taxa= Set{String}()
     super= Dict{String,String}()
     partitions= Vector{String}()
     for gene in genes  # this should create a dictionary with all the taxa.
         current_gene=sequences[gene]
         taxa=sort(collect(keys(current_gene)))
         for taxon in taxa
-            all_taxa[taxon] =1
+            push!(all_taxa, taxon)
         end
     end
-    taxa_in_superalignment=sort(collect(keys(all_taxa))) # this put all the taxa alphabetically ordered in an array.
+    taxa_in_superalignment=sort(collect(all_taxa)) # this put all the taxa alphabetically ordered in an array.
     for taxon in taxa_in_superalignment  ## initialiase supermatrix because I need someting in there to append later on (append to nothing is ok as long as its done).                     
         super[taxon] = ""
     end
     current_position=1
     for gene in genes
         current_gene=sequences[gene]
-        taxa_in_gene=sort(collect(keys(current_gene)))
-        nsites_gene=length(current_gene[taxa_in_gene[1]])
+        set_of_taxa_in_gene= Set(keys(current_gene))
+        nsites_gene=length(first(values(current_gene)))
         gene_start= current_position
-        gene_end = current_position + nsites_gene
+        gene_end = current_position + nsites_gene -1
         push!(partitions, "$gene_start - $gene_end")
         for taxon in taxa_in_superalignment
-            lineage_is_in_gene= false
-            for lineage in taxa_in_gene
-                if lineage == taxon
-                    lineage_is_in_gene = true
-                end
-            end
-            if lineage_is_in_gene == true
+            if taxon in set_of_taxa_in_gene                
                 super[taxon] *= current_gene[taxon]
-            end
-            if lineage_is_in_gene == false
-                super[taxon] *= repeat ("-", nsites_gene)
+            else
+                super[taxon] *= repeat("-", nsites_gene)
             end
         end
         current_position= gene_end +1
@@ -96,3 +104,4 @@ function parse_arguments()
     return parse_args(s)
 end
 
+main()
