@@ -80,7 +80,7 @@ function concatenate(sequences::Dict{String, Dict{String,String}})::Tuple{Dict{S
             if taxon in set_of_taxa_in_gene                
                 super[taxon] *= current_gene[taxon]
             else
-                super[taxon] *= repeat("-", nsites_gene)
+                super[taxon] *= repeat("?", nsites_gene)
             end
         end
         current_position= gene_end +1
