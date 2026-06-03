@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 using Statistics
 using ArgParse
 
