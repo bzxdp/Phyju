@@ -1,2 +1,0 @@
-Average Support for CM in 2 chains = 16.5 -- individual chains support = [18, 15]
-Average Support for Florema in 2 chains = 100.0 -- individual chains support = [100, 100]
