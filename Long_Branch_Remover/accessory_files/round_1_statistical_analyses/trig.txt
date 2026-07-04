@@ -1,0 +1,4 @@
+terminals 3 1 2 4 5
+quartets 3 1 2 4 5
+internals 3 1 2 4 5
+stems 3 1 2 4 5
