@@ -1,0 +1,14 @@
+This is a Julia implementation of ClanCheck
+as describes in the paper of Siu Ting et al. (2019) MBE: https://academic.oup.com/mbe/article/36/6/1344/5418531
+
+It takes:
+
+a FIle with a list of clades each defining a bipartition.Each clade is defined as the name of the clade followed by its definition (taxa it includes).  Everything is space separated.
+extension of tree-files.
+
+it output list of gene trees where all the constrains (defined clades), are monophyletic.
+
+If you use the software cite the paper of Siu Ting et al. (2019) and this repository.
+
+The code was written by Davide Pisani.
+
