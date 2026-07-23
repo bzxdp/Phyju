@@ -38,7 +38,7 @@ function main()
             for clade in clade_labels
                 clade_as_a_set::Set{String}= Set(clades_to_check[clade])
                 clade_taxa_in_tree= collect(intersect(clade_as_a_set,leaves))
-                if isempty(clade_taxa_in_tree)
+                if isempty(clade_taxa_in_tree) || length(clade_taxa_in_tree) == 1  ## This is an important step.  If a clade is not in a tree it cannot be tested and cannot be rejected so its an automatic pass.  If it includes only one taxon, it does not have a LCA in the standard sense to find_lca will fail. But the clade is monophyletic, so we just consider these two conditions as automatic passes.
                     push!(Test_clades_in_tree, true)
                     @warn "$(tree) does not include clade $(clade). This is marked as a pass in this implementation/interpretation of  clancheck" 
                     continue
