@@ -1123,6 +1123,59 @@ function quartet_test_for_taxon(tree::MetaGraph, focal::String,
     return quartet_test_for_taxon(tree, focal, build_quartet_mask_map(tree, masked_clades), ratio_threshold)
 end
 
+## -----------------------------------------------------------------------
+## DIAGNOSTIC ONLY — not part of any rule.
+## Re-runs the anchor search for one taxon and reports the components of the
+## ratio, so an extreme value can be attributed to its cause: a collapsed
+## denominator (comparators sitting on top of the anchor) or an inflated
+## numerator (the anchor having walked far from the focal taxon).
+## Delete this together with the debug block in the statistics script.
+## -----------------------------------------------------------------------
+function quartet_diagnostics(tree::MetaGraph, focal::String,
+                             taxon_to_group::Dict{String,String},
+                             ratio_threshold::Float64)::String
+    for anchor::String in candidate_anchors_for_tip(tree, focal)
+        (branch_of, dist_from_anchor) = anchor_branch_partition(tree, anchor)
+        if !haskey(dist_from_anchor, focal)
+            continue
+        end
+        groups = build_comparator_groups_at_anchor(tree, focal, anchor, taxon_to_group,
+                                                   branch_of, dist_from_anchor)
+        comparators = choose_quartet_from_groups(groups, dist_from_anchor)
+        if isnothing(comparators)
+            continue
+        end
+
+        d_focal::Float64 = dist_from_anchor[focal]
+        comp_distances::Vector{Float64} = [dist_from_anchor[c] for c in comparators]
+        local_median::Float64 = median(comp_distances)
+        edges_away = unweighted_path_distance(tree, focal, anchor)
+
+        focal_nb::String = first(neighbor_labels(tree, focal))
+        focal_edge::EdgeData = tree[focal, focal_nb]
+        focal_bl = ismissing(focal_edge.length) ? NaN : focal_edge.length
+
+        parts::Vector{String} = Vector{String}()
+        for c::String in comparators
+            nb::String = first(neighbor_labels(tree, c))
+            e::EdgeData = tree[c, nb]
+            own_bl = ismissing(e.length) ? NaN : e.length
+            push!(parts, string(c,
+                                " d_from_anchor=", round(dist_from_anchor[c], sigdigits=4),
+                                " own_bl=", round(own_bl, sigdigits=4)))
+        end
+
+        return string("anchor=", anchor,
+                      "  edges_focal_to_anchor=", isnothing(edges_away) ? "NA" : edges_away,
+                      "  focal_own_bl=", round(focal_bl, sigdigits=4),
+                      "  d_focal=", round(d_focal, sigdigits=6),
+                      "  local_median=", round(local_median, sigdigits=6),
+                      "  n_groups=", length(groups),
+                      "\n        comparators: ", join(parts, "  |  "))
+    end
+    return "no valid quartet at any anchor"
+end
+
 ## Top-level function — identify locally long terminal taxa by the quartet rule.
 ##
 ## masked_clades:  clade name -> member taxa (from excluded_from_quartet_tests file)

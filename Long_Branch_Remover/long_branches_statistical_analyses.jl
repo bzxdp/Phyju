@@ -200,10 +200,13 @@ function main()
     ### DIAGNOSTIC — extreme quartet ratios
     println("\n=== EXTREME QUARTET RATIOS (ratio > 100) ===")
     for tree::String in tree_labels
+        ## build the mask map ONCE per tree rather than once per taxon
+        mask_map_debug::Dict{String,String} = build_quartet_mask_map(trees[tree], masked_clades)
         for taxon::String in collect(get_leaves(trees[tree]))
-            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, masked_clades, triggering_values["quartets"][1])
+            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1])
             if !isnan(local_ratio) && local_ratio > 100
                 println("Tree: $tree  Taxon: $taxon  Ratio: $(round(local_ratio, digits=2))")
+                println("      ", quartet_diagnostics(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1]))
             end
         end
     end
