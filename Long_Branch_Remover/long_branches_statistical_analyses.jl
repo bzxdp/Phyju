@@ -8,6 +8,11 @@ using Statistics
 using Random
 using CairoMakie
 
+### The long-branch rules themselves live next door, not in the libraries: they are
+### specific to this analysis (K triggers, safeguard quantiles, clade files) and were
+### cluttering TreeStats/TreeUtils, which are shared with other projects.
+include("long_branch_rules.jl")
+
 
 function main()
     args= parse_arguments()
@@ -48,7 +53,7 @@ function main()
     end
 
     ### Triggering thresholds
-    triggering_values::Dict{String,Vector{Float64}}=Dict{String,Vector{Int64}}()
+    triggering_values::Dict{String,Vector{Float64}}=Dict{String,Vector{Float64}}()
     open(tresh_triggers, "r") do fh
         for line::String in eachline(fh)
             triggers::Vector{String}= split(strip(line))
@@ -58,15 +63,23 @@ function main()
     end
             
     ##### stats for terminal taxa, clades, internal branches and quartets
-    (global_bls_all_taxa::Set{Float64},taxon_specific_bls::Dict{String,Vector{Float64}},taxon_specific_triggering_tresholds::Dict{String,Float64})= stats_for_terminals(trees, triggering_values["terminals"][1])
-    (bls_and_their_lenght_by_tree::Dict{String,Dict{Tuple{String,String},Float64}},global_set_internal_blens::Set{Float64},triggering_values_per_tree::Dict{String,Float64})= stats_for_internal_branches(trees, triggering_values["internals"][1])
-    (global_set_of_ratios::Set{Float64},all_ratios_over_all_taxa::Dict{String,Vector{Float64}})= stats_for_quartets(trees,masked_clades,triggering_values["quartets"][1])
-    (global_bls_all_stems::Set{Float64},stem_specific_bls::Dict{String,Vector{Float64}},stem_specific_triggering_tresholds::Dict{String,Float64})= stats_for_stems(trees,clades_file,triggering_values["stems"][1])
+    (global_bls_all_taxa::Vector{Float64},taxon_specific_bls::Dict{String,Vector{Float64}},taxon_specific_triggering_tresholds::Dict{String,Float64})= stats_for_terminals(trees, triggering_values["terminals"][1])
+    (bls_and_their_lenght_by_tree::Dict{String,Dict{Tuple{String,String},Float64}},global_set_internal_blens::Vector{Float64},triggering_values_per_tree::Dict{String,Float64})= stats_for_internal_branches(trees, triggering_values["internals"][1])
+    (global_set_of_ratios::Vector{Float64},all_ratios_over_all_taxa::Dict{String,Vector{Float64}})= stats_for_quartets(trees,masked_clades,triggering_values["quartets"][1])
+    (global_bls_all_stems::Vector{Float64},stem_specific_bls::Dict{String,Vector{Float64}},stem_specific_triggering_tresholds::Dict{String,Float64})= stats_for_stems(trees,clades_file,triggering_values["stems"][1])
 
     ##### Alternative triggers for plotting
-    median_clades_bl::Float64= median(global_bls_all_stems)
-    median_terminals_bl::Float64= median(global_bls_all_taxa)
-    median_internals_bl::Float64= median(global_set_internal_blens)
+    ## These MUST be computed the same way TreeStats computes the global term of the
+    ## real triggers, otherwise the alternative-K lines drawn below would not
+    ## correspond to what long_branches_identifier.jl would actually do.
+    ## In every case: MEDIAN OF THE PER-UNIT MEDIANS, one vote per unit —
+    ##   terminals -> one vote per taxon, clades -> one vote per clade,
+    ##   internals -> one vote per gene tree.
+    ## NOT the median of the pooled branch lengths, which would be weighted by gene
+    ## occupancy (terminals, clades) or by tree size (internals).
+    median_clades_bl::Float64= median([median(v) for v in values(stem_specific_bls) if !isempty(v)])
+    median_terminals_bl::Float64= median([median(v) for v in values(taxon_specific_bls) if !isempty(v)])
+    median_internals_bl::Float64= median([median(collect(values(d))) for d in values(bls_and_their_lenght_by_tree) if !isempty(d)])
 
     #### NOTE for quartets the triggers do not need to be defined they are just the raw values plotted. So I am not defining a clade of alternative triggers as done below for stem terminals and internals.
     
@@ -83,7 +96,7 @@ function main()
         median_current_clade_bl::Float64=median(stem_specific_bls[clade])
         counter::Int64= 2
         while counter <= length(triggering_values["stems"])
-            alternative_trigger::Int64 = triggering_values["stems"][counter]
+            alternative_trigger::Float64 = triggering_values["stems"][counter]
             current_trigger::Float64= (alternative_trigger - 1) * median_current_clade_bl + median_clades_bl
             push!(stem_specific_alternative_triggering_tresholds[clade], current_trigger)
             counter += 1
@@ -99,7 +112,7 @@ function main()
         median_current_taxon_bl::Float64=median(taxon_specific_bls[taxon])
 	counter::Int64= 2
 	while counter <= length(triggering_values["terminals"])
-            alternative_trigger::Int64 = triggering_values["terminals"][counter]
+            alternative_trigger::Float64 = triggering_values["terminals"][counter]
             current_trigger::Float64= (alternative_trigger - 1) * median_current_taxon_bl + median_terminals_bl
             push!(terminal_taxa_specific_alternative_triggering_tresholds[taxon], current_trigger)
             counter += 1
@@ -115,7 +128,7 @@ function main()
         median_current_tree_bls::Float64=median(current_tree_bls_vals)
         counter::Int64= 2
 	while counter <= length(triggering_values["internals"])
-            alternative_trigger::Int64 = triggering_values["internals"][counter]
+            alternative_trigger::Float64 = triggering_values["internals"][counter]
             current_trigger::Float64= (alternative_trigger - 1) * median_current_tree_bls + median_internals_bl
             push!(tree_specific_alternative_triggering_tresholds[tree], current_trigger)
             counter += 1
