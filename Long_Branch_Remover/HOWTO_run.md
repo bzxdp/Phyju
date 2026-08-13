@@ -178,6 +178,10 @@ smaller one.
 
 ## 5. What the console tells you
 
+- The **comparator floor** for this dataset: the shortest terminal branch a tip may sit on
+  and still be used as a quartet comparator. It is `max(1e-6, 0.01 x median terminal
+  branch)`, so it scales with the data. Tips below it carry no information about local
+  scale and are skipped rather than trusted.
 - Taxa and clades **not evaluable** because they appear in fewer than 3 trees. These are
   retained — a median from one or two values is noise.
 - Per tree, how many taxa the **quartet rule could test**. A low fraction means masking

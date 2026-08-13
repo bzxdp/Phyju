@@ -247,9 +247,16 @@ function stats_for_quartets(trees::Dict{String,MetaGraph},masked_clades::Dict{St
                 continue
             end
             ## skip taxa with near-zero branch lengths
+            ## A FOCAL taxon on a branch the inference could not estimate has no ratio
+            ## worth recording either: the numerator is noise rather than the
+            ## denominator.  Same scaled threshold as the comparators, so both ends of
+            ## the distribution are cleaned on the same criterion.
+            ## This affects the plotted distribution ONLY.  The identifier does not skip
+            ## such taxa - there the absolute branch-length safeguard already makes them
+            ## unremovable, which is the better mechanism because it is data-driven.
             neighbour::String = first(neighbor_labels(trees[tree], taxon))
             edge::EdgeData = trees[tree][taxon, neighbour]
-            if ismissing(edge.length) || edge.length <= 1e-6
+            if ismissing(edge.length) || edge.length <= min_comparator_branch
                 continue
             end
             (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_maps[tree], ratio_threshold; min_comparator_branch = min_comparator_branch)
