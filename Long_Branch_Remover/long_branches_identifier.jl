@@ -136,6 +136,12 @@ function main()
     ## drops and quartet drops alike.  This is why safeguarding_values has 3 entries
     ## and not 4.
     terminal_quartet_safeguard::Float64 = quantile(global_bls_all_taxa, safeguarding_values[1])
+
+    ## A comparator sitting on a branch the inference could not estimate carries no
+    ## information about the local scale, and lets the quartet ratio explode.  The
+    ## threshold scales with the dataset rather than sitting at a fixed floor.
+    comparator_branch_floor::Float64 = comparator_branch_threshold(global_bls_all_taxa)
+    println("\nQuartet comparators must sit on a terminal branch longer than $(comparator_branch_floor)")
     internal_branches_retention_threshold::Float64 = quantile(global_set_internal_blens, safeguarding_values[2])
     stem_retention_threshold::Float64 = quantile(global_bls_all_stems, safeguarding_values[3])
     
@@ -177,7 +183,7 @@ function main()
         ## the same value the terminal rule uses (Python --global_rescue).  NOT a
         ## quantile of ratios: a trivial branch in a short-branched neighbourhood can
         ## score a huge ratio and is not a long-branch-attraction risk.
-        terminal_taxa_to_delete_because_of_quartet_rule= identify_local_long_branches(trees[tree], tree, clades_to_exclude_from_quartet_tests, triggering_values[4], terminal_quartet_safeguard)
+        terminal_taxa_to_delete_because_of_quartet_rule= identify_local_long_branches(trees[tree], tree, clades_to_exclude_from_quartet_tests, triggering_values[4], terminal_quartet_safeguard; min_comparator_branch = comparator_branch_floor)
 
 
         ##write out all the long taxa in tree following a specified order long branch subtree, clade, terminal, quartet rule in a  each block separated by a whiteline

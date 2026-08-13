@@ -65,7 +65,10 @@ function main()
     ##### stats for terminal taxa, clades, internal branches and quartets
     (global_bls_all_taxa::Vector{Float64},taxon_specific_bls::Dict{String,Vector{Float64}},taxon_specific_triggering_tresholds::Dict{String,Float64})= stats_for_terminals(trees, triggering_values["terminals"][1])
     (bls_and_their_lenght_by_tree::Dict{String,Dict{Tuple{String,String},Float64}},global_set_internal_blens::Vector{Float64},triggering_values_per_tree::Dict{String,Float64})= stats_for_internal_branches(trees, triggering_values["internals"][1])
-    (global_set_of_ratios::Vector{Float64},all_ratios_over_all_taxa::Dict{String,Vector{Float64}})= stats_for_quartets(trees,masked_clades,triggering_values["quartets"][1])
+    ## comparator floor scaled to the dataset — see comparator_branch_threshold()
+    comparator_branch_floor::Float64 = comparator_branch_threshold(global_bls_all_taxa)
+    println("\nQuartet comparators must sit on a terminal branch longer than $(comparator_branch_floor)")
+    (global_set_of_ratios::Vector{Float64},all_ratios_over_all_taxa::Dict{String,Vector{Float64}})= stats_for_quartets(trees,masked_clades,triggering_values["quartets"][1]; min_comparator_branch = comparator_branch_floor)
     (global_bls_all_stems::Vector{Float64},stem_specific_bls::Dict{String,Vector{Float64}},stem_specific_triggering_tresholds::Dict{String,Float64})= stats_for_stems(trees,clades_file,triggering_values["stems"][1])
 
     ##### Alternative triggers for plotting
@@ -203,10 +206,10 @@ function main()
         ## build the mask map ONCE per tree rather than once per taxon
         mask_map_debug::Dict{String,String} = build_quartet_mask_map(trees[tree], masked_clades)
         for taxon::String in collect(get_leaves(trees[tree]))
-            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1])
+            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1]; min_comparator_branch = comparator_branch_floor)
             if !isnan(local_ratio) && local_ratio > 100
                 println("Tree: $tree  Taxon: $taxon  Ratio: $(round(local_ratio, digits=2))")
-                println("      ", quartet_diagnostics(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1]))
+                println("      ", quartet_diagnostics(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1]; min_comparator_branch = comparator_branch_floor))
             end
         end
     end

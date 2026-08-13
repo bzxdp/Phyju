@@ -38,6 +38,23 @@ const MIN_CROSS_GENE_OBS = 3
 ## the thousands; it never notices because it never pools them.
 const MIN_COMPARATOR_BRANCH = 1e-6
 
+## The floor above is an absolute backstop only.  What actually counts as "no
+## information" depends on the dataset: measured on real trees the noise branches were
+## 1e-6, 2.06e-6, 2.09e-6, 2.23e-6 and 2.54e-6 while the real branches around them were
+## 0.0089 and up - three orders of magnitude clear.  A fixed 1e-6 cutoff catches only
+## the exactly-floored ones and lets 2.5e-6 through, which is enough to drag a local
+## median to 7e-6 and produce a ratio of 1280 for a taxon whose true ratio is 0.52.
+## So the working threshold is a fraction of the dataset's typical terminal branch.
+const COMPARATOR_SCALE_FRACTION = 0.01
+
+## threshold = max(absolute floor, fraction of the typical terminal branch)
+function comparator_branch_threshold(global_terminal_bls::Vector{Float64})::Float64
+    if isempty(global_terminal_bls)
+        return MIN_COMPARATOR_BRANCH
+    end
+    return max(MIN_COMPARATOR_BRANCH, COMPARATOR_SCALE_FRACTION * median(global_terminal_bls))
+end
+
 
 ### ---------------------------------------------------------------------
 ### moved from TreeUtils: these take a trigger, or operate on a "stack" of long
@@ -193,7 +210,7 @@ end
 ### quartet machinery.
 ### ---------------------------------------------------------------------
 
-function stats_for_quartets(trees::Dict{String,MetaGraph},masked_clades::Dict{String,Vector{String}},ratio_threshold::Float64)::Tuple{Vector{Float64},Dict{String,Vector{Float64}}}
+function stats_for_quartets(trees::Dict{String,MetaGraph},masked_clades::Dict{String,Vector{String}},ratio_threshold::Float64; min_comparator_branch::Float64 = MIN_COMPARATOR_BRANCH)::Tuple{Vector{Float64},Dict{String,Vector{Float64}}}
 
     tree_labels::Vector{String} = collect(keys(trees))
     total_set_of_taxa::Set{String} = Set{String}()
@@ -235,7 +252,7 @@ function stats_for_quartets(trees::Dict{String,MetaGraph},masked_clades::Dict{St
             if ismissing(edge.length) || edge.length <= 1e-6
                 continue
             end
-            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_maps[tree], ratio_threshold)
+            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_maps[tree], ratio_threshold; min_comparator_branch = min_comparator_branch)
             if !isnan(local_ratio)
                 push!(all_ratios_of_taxon, local_ratio)
             end
@@ -990,7 +1007,8 @@ end
 function build_comparator_groups_at_anchor(tree::MetaGraph, focal::String, anchor::String,
                                            taxon_to_group::Dict{String,String},
                                            branch_of::Dict{String,String},
-                                           dist_from_anchor::Dict{String,Float64})::Vector{Vector{String}}
+                                           dist_from_anchor::Dict{String,Float64};
+                                           min_comparator_branch::Float64 = MIN_COMPARATOR_BRANCH)::Vector{Vector{String}}
 
     focal_branch::Union{String,Nothing} = get(branch_of, focal, nothing)
     if isnothing(focal_branch)
@@ -1012,7 +1030,7 @@ function build_comparator_groups_at_anchor(tree::MetaGraph, focal::String, ancho
         ## not short, and carries no information about the local scale
         neighbour_of_tip::String = first(neighbor_labels(tree, node))
         tip_edge::EdgeData = tree[node, neighbour_of_tip]
-        if ismissing(tip_edge.length) || tip_edge.length <= MIN_COMPARATOR_BRANCH
+        if ismissing(tip_edge.length) || tip_edge.length <= min_comparator_branch
             continue
         end
         push!(get!(tips_by_branch, branch, Vector{String}()), node)
@@ -1077,7 +1095,8 @@ end
 ## three valid comparators is used — the search does not continue past it.
 function quartet_test_for_taxon(tree::MetaGraph, focal::String,
                                 taxon_to_group::Dict{String,String},
-                                ratio_threshold::Float64)::Tuple{Bool,Float64}
+                                ratio_threshold::Float64;
+                                min_comparator_branch::Float64 = MIN_COMPARATOR_BRANCH)::Tuple{Bool,Float64}
 
     for anchor::String in candidate_anchors_for_tip(tree, focal)
         (branch_of, dist_from_anchor) = anchor_branch_partition(tree, anchor)
@@ -1088,7 +1107,8 @@ function quartet_test_for_taxon(tree::MetaGraph, focal::String,
 
         groups::Vector{Vector{String}} = build_comparator_groups_at_anchor(tree, focal, anchor,
                                                                           taxon_to_group,
-                                                                          branch_of, dist_from_anchor)
+                                                                          branch_of, dist_from_anchor;
+                                                                          min_comparator_branch = min_comparator_branch)
         comparators::Union{Vector{String},Nothing} = choose_quartet_from_groups(groups, dist_from_anchor)
         if isnothing(comparators)
             continue
@@ -1100,7 +1120,7 @@ function quartet_test_for_taxon(tree::MetaGraph, focal::String,
 
         ## Even with degenerate comparators excluded, refuse to divide by a local
         ## reference that carries no scale.  Not evaluable, therefore retained.
-        if local_median <= MIN_COMPARATOR_BRANCH
+        if local_median <= min_comparator_branch
             return (false, NaN)
         end
 
@@ -1119,8 +1139,10 @@ end
 ## fragment search traverses every split in the tree.
 function quartet_test_for_taxon(tree::MetaGraph, focal::String,
                                 masked_clades::Dict{String,Vector{String}},
-                                ratio_threshold::Float64)::Tuple{Bool,Float64}
-    return quartet_test_for_taxon(tree, focal, build_quartet_mask_map(tree, masked_clades), ratio_threshold)
+                                ratio_threshold::Float64;
+                                min_comparator_branch::Float64 = MIN_COMPARATOR_BRANCH)::Tuple{Bool,Float64}
+    return quartet_test_for_taxon(tree, focal, build_quartet_mask_map(tree, masked_clades), ratio_threshold;
+                                  min_comparator_branch = min_comparator_branch)
 end
 
 ## -----------------------------------------------------------------------
@@ -1133,14 +1155,16 @@ end
 ## -----------------------------------------------------------------------
 function quartet_diagnostics(tree::MetaGraph, focal::String,
                              taxon_to_group::Dict{String,String},
-                             ratio_threshold::Float64)::String
+                             ratio_threshold::Float64;
+                             min_comparator_branch::Float64 = MIN_COMPARATOR_BRANCH)::String
     for anchor::String in candidate_anchors_for_tip(tree, focal)
         (branch_of, dist_from_anchor) = anchor_branch_partition(tree, anchor)
         if !haskey(dist_from_anchor, focal)
             continue
         end
         groups = build_comparator_groups_at_anchor(tree, focal, anchor, taxon_to_group,
-                                                   branch_of, dist_from_anchor)
+                                                   branch_of, dist_from_anchor;
+                                                   min_comparator_branch = min_comparator_branch)
         comparators = choose_quartet_from_groups(groups, dist_from_anchor)
         if isnothing(comparators)
             continue
@@ -1200,7 +1224,7 @@ end
 ##
 ## This also subsumes the old hard-coded `edge.length <= 1e-6` skip: that was the
 ## same test with an arbitrary cutoff instead of one taken from the data.
-function identify_local_long_branches(tree::MetaGraph, treename::String, masked_clades::Dict{String,Vector{String}}, ratio_threshold::Float64, terminal_bl_retention_threshold::Float64)::Vector{String}
+function identify_local_long_branches(tree::MetaGraph, treename::String, masked_clades::Dict{String,Vector{String}}, ratio_threshold::Float64, terminal_bl_retention_threshold::Float64; min_comparator_branch::Float64 = MIN_COMPARATOR_BRANCH)::Vector{String}
     long_taxa::Vector{String} = Vector{String}()
     ## mask fragments are tree-specific — derive them once for this tree
     taxon_to_group::Dict{String,String} = build_quartet_mask_map(tree, masked_clades)
@@ -1220,7 +1244,7 @@ function identify_local_long_branches(tree::MetaGraph, treename::String, masked_
         end
         terminal_bl::Float64 = edge.length
 
-        (is_long, ratio) = quartet_test_for_taxon(tree, taxon, taxon_to_group, ratio_threshold)
+        (is_long, ratio) = quartet_test_for_taxon(tree, taxon, taxon_to_group, ratio_threshold; min_comparator_branch = min_comparator_branch)
 
         if isnan(ratio)
             ## no anchor yielded three valid comparators after masking, or the local
