@@ -200,21 +200,6 @@ function main()
     println("Quartet ratio 99th percentile: $(quantile(all_q_ratios, 0.99))")
     println("Quartet ratio 95th percentile: $(quantile(all_q_ratios, 0.95))")
     println("Quartet ratio median: $(median(all_q_ratios))")
-    ### DIAGNOSTIC — extreme quartet ratios
-    println("\n=== EXTREME QUARTET RATIOS (ratio > 100) ===")
-    for tree::String in tree_labels
-        ## build the mask map ONCE per tree rather than once per taxon
-        mask_map_debug::Dict{String,String} = build_quartet_mask_map(trees[tree], masked_clades)
-        for taxon::String in collect(get_leaves(trees[tree]))
-            (is_long, local_ratio) = quartet_test_for_taxon(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1]; min_comparator_branch = comparator_branch_floor)
-            if !isnan(local_ratio) && local_ratio > 100
-                println("Tree: $tree  Taxon: $taxon  Ratio: $(round(local_ratio, digits=2))")
-                println("      ", quartet_diagnostics(trees[tree], taxon, mask_map_debug, triggering_values["quartets"][1]; min_comparator_branch = comparator_branch_floor))
-            end
-        end
-    end
-    println("=== END EXTREME QUARTET RATIOS ===\n")
-    ### the above was added to  debug quartets plots as they identified few outlaiers with enormous values.
 
     fig_q = Figure(size = (max(800, 75 * length(taxa_in_trees)), 600))
     ax_q = Axis(fig_q[1,1],
