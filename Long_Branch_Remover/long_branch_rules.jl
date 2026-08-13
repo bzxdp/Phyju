@@ -20,16 +20,23 @@
 ## taxon or clade is RETAINED — a median built on one or two values is noise.
 const MIN_CROSS_GENE_OBS = 3
 
-## Smallest distance from the anchor at which a comparator carries usable
-## information.  Tree inference pins branches it cannot estimate at a minimum value
-## (IQ-TREE uses 1e-6), so a comparator sitting at that distance gives the local
-## reference no scale: the median collapses toward zero and the ratio explodes.
-## Saying a taxon is "3x its neighbourhood" is meaningless when the neighbourhood
-## measures 1e-6.  Such tips are not valid comparators; if that leaves fewer than
-## three at an anchor the search moves outward to one with real scale.
-## The Python prototype has no equivalent guard and produces ratios in the thousands
-## on real data; it never notices because it never pools them.
-const MIN_COMPARATOR_DISTANCE = 1e-6
+## Shortest TERMINAL BRANCH a tip may have and still serve as a comparator.
+## Tree inference pins branches it cannot estimate at a minimum value (IQ-TREE uses
+## 1e-6): such a branch is UNESTIMATED, not short, and a tip carrying one tells you
+## nothing about the local scale.  Comparing a taxon against it is comparing against
+## missing data, and the ratio explodes.
+##
+## The test is on the tip's OWN terminal branch, not on its distance from the anchor.
+## That distinction matters: in a cluster of near-identical sequences every tip sits
+## on a floor-length branch, but two or three edges out from the anchor the ACCUMULATED
+## distance already exceeds 1e-6, so a distance test keeps precisely the tips that
+## should be excluded.  Measured on real data, the distance form left the maximum
+## quartet ratio at 20805 and made matters worse by pushing anchors outward; this form
+## does not have that failure.
+##
+## The Python prototype has no equivalent guard at all and produces the same ratios in
+## the thousands; it never notices because it never pools them.
+const MIN_COMPARATOR_BRANCH = 1e-6
 
 
 ### ---------------------------------------------------------------------
@@ -1001,8 +1008,11 @@ function build_comparator_groups_at_anchor(tree::MetaGraph, focal::String, ancho
         if !comparator_allowed(taxon_to_group, focal, node)
             continue
         end
-        ## a tip effectively on top of the anchor gives the local reference no scale
-        if dist_from_anchor[node] <= MIN_COMPARATOR_DISTANCE
+        ## a tip whose own terminal branch is at the inference floor is unestimated,
+        ## not short, and carries no information about the local scale
+        neighbour_of_tip::String = first(neighbor_labels(tree, node))
+        tip_edge::EdgeData = tree[node, neighbour_of_tip]
+        if ismissing(tip_edge.length) || tip_edge.length <= MIN_COMPARATOR_BRANCH
             continue
         end
         push!(get!(tips_by_branch, branch, Vector{String}()), node)
@@ -1090,7 +1100,7 @@ function quartet_test_for_taxon(tree::MetaGraph, focal::String,
 
         ## Even with degenerate comparators excluded, refuse to divide by a local
         ## reference that carries no scale.  Not evaluable, therefore retained.
-        if local_median <= MIN_COMPARATOR_DISTANCE
+        if local_median <= MIN_COMPARATOR_BRANCH
             return (false, NaN)
         end
 
