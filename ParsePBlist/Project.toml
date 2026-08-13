@@ -1,0 +1,12 @@
+name = "ParsePBlist"
+uuid = "991b7fc2-33ce-457a-9768-d3ab8111c68c"
+version = "0.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[compat]
+PackageCompiler = "2.4.0"
+Statistics = "1.11.1"

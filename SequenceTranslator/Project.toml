@@ -1,0 +1,13 @@
+name = "SequenceTranslator"
+uuid = "77463e18-f7ea-480b-bc4e-ef26d5665747"
+version = "0.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
+FASTX = "c2308a5c-f048-11e8-3e8a-31650f418d12"
+PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+PhyloDataIO = "29a14395-e58b-4633-ba28-2eb842d239b6"
+
+[compat]
+PackageCompiler = "2.4.0"

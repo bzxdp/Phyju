@@ -1,4 +1,5 @@
-#!/usr/bin/env julia
+module SequenceTranslator
+
 using ArgParse
 using BioSequences
 using PhyloDataIO
@@ -10,7 +11,7 @@ function main()
     outfile= args["output"]
     format= args["outformat"]
 
-    sequences=  read_PhyloData(infile)
+    sequences= read_PhyloData(infile)
     write_PhyloData(sequences, outfile, format)
 end
 
@@ -30,4 +31,9 @@ function parse_arguments()
     return parse_args(s)
 end
 
-main()
+function julia_main()::Cint
+    main()
+    return 0
+end
+ 
+end
