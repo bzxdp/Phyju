@@ -1,0 +1,15 @@
+name = "ConcatSeqs"
+uuid = "72b83ccb-3063-4443-a0cd-334959e33b7a"
+version = "0.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
+PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+PhyloDataIO = "29a14395-e58b-4633-ba28-2eb842d239b6"
+
+[sources]
+PhyloDataIO = {path = "/lfs1i3/home/b35bw/bzxdp.b35bw/githubbed_stuff/Julia_code/PhyloDataIO"}
+
+[compat]
+PackageCompiler = "2.4.0"

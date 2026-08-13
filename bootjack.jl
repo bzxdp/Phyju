@@ -1,7 +1,6 @@
 using ArgParse
-using BioSequences
 using PhyloDataIO
-using FASTX
+
 
 function main()
     args= parse_arguments()
