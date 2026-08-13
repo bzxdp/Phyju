@@ -264,7 +264,9 @@ function main()
         ### rule one - named clade long is BLUE
         for clade::String in keys(terminal_taxa_to_delete_because_stem_globally_long)
             clade_leaves_in_tree::Vector{String} = terminal_taxa_to_delete_because_stem_globally_long[clade]
-            lca::Union{String,Nothing} = find_lca(trees[tree], clade_leaves_in_tree) ## this gives us ancestor node of clade
+            ## these taxa are a fragment and so should be monophyletic — if they are not,
+            ## something is wrong, so the warning is left ON here.  Name passed so it says which clade.
+            lca::Union{String,Nothing} = find_lca(trees[tree], clade_leaves_in_tree, clade) ## this gives us ancestor node of clade
             if isnothing(lca)
                 @warn "Could not find LCA for clade $clade in tree $tree — skipping colouring"
                 continue

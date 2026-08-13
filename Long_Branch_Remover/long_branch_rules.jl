@@ -20,6 +20,17 @@
 ## taxon or clade is RETAINED — a median built on one or two values is noise.
 const MIN_CROSS_GENE_OBS = 3
 
+## Smallest distance from the anchor at which a comparator carries usable
+## information.  Tree inference pins branches it cannot estimate at a minimum value
+## (IQ-TREE uses 1e-6), so a comparator sitting at that distance gives the local
+## reference no scale: the median collapses toward zero and the ratio explodes.
+## Saying a taxon is "3x its neighbourhood" is meaningless when the neighbourhood
+## measures 1e-6.  Such tips are not valid comparators; if that leaves fewer than
+## three at an anchor the search moves outward to one with real scale.
+## The Python prototype has no equivalent guard and produces ratios in the thousands
+## on real data; it never notices because it never pools them.
+const MIN_COMPARATOR_DISTANCE = 1e-6
+
 
 ### ---------------------------------------------------------------------
 ### moved from TreeUtils: these take a trigger, or operate on a "stack" of long
@@ -371,7 +382,10 @@ function stats_for_stems(trees::Dict{String,MetaGraph},clade_file::String, thres
                 continue
             end
 
-            lca_node::Union{String,Nothing}= find_lca(trees[tree], clade_composition_in_current_tree)
+            ## pass the clade name so any warning says WHICH clade; warn_on_failure is
+            ## off because a missing LCA is the normal path into the fragment search
+            ## below, and find_lca_largest_subset reports it with the name anyway
+            lca_node::Union{String,Nothing}= find_lca(trees[tree], clade_composition_in_current_tree, clade; warn_on_failure=false)
 
             if isnothing(lca_node)
                 (lca_node, largest_subset_of_members) = find_lca_largest_subset(trees[tree], clade_composition_in_current_tree, clade)
@@ -701,7 +715,9 @@ function resolve_clade_fragments(tree::MetaGraph, treename::String, clade_file_n
             continue
         end
         largest_subset::Vector{String} = definitions_of_clades_in_tree[clade]
-        lca_of_current_clade= find_lca(tree, definitions_of_clades_in_tree[clade])
+        ## clade name passed for the message; warning suppressed because the println
+        ## just below already reports this by name, with the tree
+        lca_of_current_clade= find_lca(tree, definitions_of_clades_in_tree[clade], clade; warn_on_failure=false)
         if isnothing(lca_of_current_clade)
             println("$(clade) not monophyletic in tree $(treename).  We will define clade as the largest monophyletic subset of taxa of $(clade) in $(treename)")
             
@@ -985,6 +1001,10 @@ function build_comparator_groups_at_anchor(tree::MetaGraph, focal::String, ancho
         if !comparator_allowed(taxon_to_group, focal, node)
             continue
         end
+        ## a tip effectively on top of the anchor gives the local reference no scale
+        if dist_from_anchor[node] <= MIN_COMPARATOR_DISTANCE
+            continue
+        end
         push!(get!(tips_by_branch, branch, Vector{String}()), node)
     end
 
@@ -1068,9 +1088,9 @@ function quartet_test_for_taxon(tree::MetaGraph, focal::String,
         comp_distances::Vector{Float64} = [dist_from_anchor[c] for c in comparators]
         local_median::Float64 = median(comp_distances)
 
-        ## Python leaves the ratio undefined (and does NOT drop) when the local
-        ## reference collapses to zero — it does not fall through to another anchor.
-        if local_median <= 1e-12
+        ## Even with degenerate comparators excluded, refuse to divide by a local
+        ## reference that carries no scale.  Not evaluable, therefore retained.
+        if local_median <= MIN_COMPARATOR_DISTANCE
             return (false, NaN)
         end
 
